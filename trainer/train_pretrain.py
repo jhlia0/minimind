@@ -172,7 +172,17 @@ if __name__ == "__main__":
     if args.use_wandb and (not ddp or ddp_local_rank == 0):
         import wandb
 
-        wandb.init(project=args.wandb_project, name=args.wandb_run_name)
+        wandb.init(
+            project=args.wandb_project,
+            name=args.wandb_run_name,
+            config={
+                "batch_size": args.batch_size,
+                "hidden_size": args.hidden_size,
+                "num_hidden_layers": args.num_hidden_layers,
+                "accumulation_steps": args.accumulation_steps,
+                "max_seq_len": args.max_seq_len,
+            },
+        )
     else:
         wandb = None
 
