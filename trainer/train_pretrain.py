@@ -64,7 +64,10 @@ def train_epoch(epoch, wandb):
             scaler.step(optimizer)
             scaler.update()
 
-            optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)  # 梯度清 0
+            if args.device == "xla":
+                import torch_xla.core.xla_model as xm
+                xm.mark_step()
 
         if step % args.log_interval == 0:
             spend_time = time.time() - start_time
@@ -116,7 +119,7 @@ def init_model(lm_config):
     
     model = MiniMindForCausalLM(lm_config).to(device)
     if args.compile_model:
-        model.compile()
+        model.compile(backend="openxla" if args.device == "xla" else "inductor")
     Logger(
         f"LLM可训练总参数量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百万"
     )
