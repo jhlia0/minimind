@@ -111,9 +111,8 @@ def init_model(lm_config):
 
     ## TPU support
     if args.device == "xla":
-        import pytorch_xla
-        import torch_xla.core.xla_model as xm
-        device = xm.xla_device()
+        import torch_xla
+        device = torch_xla.device()
     
     model = MiniMindForCausalLM(lm_config).to(device)
     if args.compile_model:
