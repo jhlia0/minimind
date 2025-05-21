@@ -107,7 +107,15 @@ def train_epoch(epoch, wandb):
 
 def init_model(lm_config):
     tokenizer = AutoTokenizer.from_pretrained("../model/")
-    model = MiniMindForCausalLM(lm_config).to(args.device)
+    device = args.device
+
+    ## TPU support
+    if args.device == "xla":
+        import pytorch_xla
+        import torch_xla.core.xla_model as xm
+        device = xm.xla_device()
+    
+    model = MiniMindForCausalLM(lm_config).to(device)
     if args.compile_model:
         model.compile()
     Logger(
