@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     args.wandb_run_name = f"MiniMind-Pretrain-Epoch-{args.epochs}-BatchSize-{args.batch_size}-LearningRate-{args.learning_rate}"
 
-    ctx = nullcontext() if device_type == "cpu" else torch.cuda.amp.autocast()
+    ctx = torch.amp.autocast(device_type=device_type, dtype=torch.bfloat16)
 
     ddp = int(os.environ.get("RANK", -1)) != -1  # is this a ddp run?
     ddp_local_rank, DEVICE = 0, "cuda:0"
@@ -201,7 +201,9 @@ if __name__ == "__main__":
         sampler=train_sampler
     )
 
-    scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype in ['float16', 'bfloat16']))
+    scaler = torch.amp.GradScaler(
+        "cuda", enabled=(args.dtype in ["float16", "bfloat16"])
+    )
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     if ddp:
