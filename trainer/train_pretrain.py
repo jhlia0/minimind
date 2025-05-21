@@ -1,7 +1,8 @@
 import os
 import sys
+
 __package__ = "trainer"
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import argparse
 import time
@@ -17,7 +18,7 @@ from transformers import AutoTokenizer
 from model.model_minimind import MiniMindConfig, MiniMindForCausalLM
 from dataset.lm_dataset import PretrainDataset
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 def Logger(content):
@@ -30,23 +31,26 @@ def get_lr(current_step, total_steps, lr):
 
 
 def train_epoch(epoch, wandb):
-    loss_fct = nn.CrossEntropyLoss(reduction='none')
+    loss_fct = nn.CrossEntropyLoss(reduction="none")
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
         X = X.to(args.device)
         Y = Y.to(args.device)
         loss_mask = loss_mask.to(args.device)
 
-        lr = get_lr(epoch * iter_per_epoch + step, args.epochs * iter_per_epoch, args.learning_rate)
+        lr = get_lr(
+            epoch * iter_per_epoch + step,
+            args.epochs * iter_per_epoch,
+            args.learning_rate,
+        )
         for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+            param_group["lr"] = lr
 
         with ctx:
             res = model(X)
-            loss = loss_fct(
-                res.logits.view(-1, res.logits.size(-1)),
-                Y.view(-1)
-            ).view(Y.size())
+            loss = loss_fct(res.logits.view(-1, res.logits.size(-1)), Y.view(-1)).view(
+                Y.size()
+            )
             loss = (loss * loss_mask).sum() / loss_mask.sum()
             loss += res.aux_loss
             loss = loss / args.accumulation_steps
@@ -65,24 +69,31 @@ def train_epoch(epoch, wandb):
         if step % args.log_interval == 0:
             spend_time = time.time() - start_time
             Logger(
-                'Epoch:[{}/{}]({}/{}) loss:{:.3f} lr:{:.12f} epoch_Time:{}min:'.format(
+                "Epoch:[{}/{}]({}/{}) loss:{:.3f} lr:{:.12f} epoch_Time:{}min:".format(
                     epoch + 1,
                     args.epochs,
                     step,
                     iter_per_epoch,
                     loss.item() * args.accumulation_steps,
-                    optimizer.param_groups[-1]['lr'],
-                    spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60))
+                    optimizer.param_groups[-1]["lr"],
+                    spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60,
+                )
+            )
 
             if (wandb is not None) and (not ddp or dist.get_rank() == 0):
-                wandb.log({"loss": loss.item() * args.accumulation_steps,
-                           "lr": optimizer.param_groups[-1]['lr'],
-                           "epoch_Time": spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60})
+                wandb.log(
+                    {
+                        "loss": loss.item() * args.accumulation_steps,
+                        "lr": optimizer.param_groups[-1]["lr"],
+                        "epoch_Time": spend_time / (step + 1) * iter_per_epoch // 60
+                        - spend_time // 60,
+                    }
+                )
 
         if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
-            moe_path = '_moe' if lm_config.use_moe else ''
-            ckp = f'{args.save_dir}/pretrain_{lm_config.hidden_size}{moe_path}.pth'
+            moe_path = "_moe" if lm_config.use_moe else ""
+            ckp = f"{args.save_dir}/pretrain_{lm_config.hidden_size}{moe_path}.pth"
 
             if isinstance(model, torch.nn.parallel.DistributedDataParallel):
                 state_dict = model.module.state_dict()
@@ -106,7 +117,8 @@ def init_model(lm_config):
 
 
 def init_distributed_mode():
-    if not ddp: return
+    if not ddp:
+        return
     global ddp_local_rank, DEVICE
 
     dist.init_process_group(backend="nccl")
@@ -125,7 +137,9 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--learning_rate", type=float, default=5e-4)
-    parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu"
+    )
     parser.add_argument("--dtype", type=str, default="bfloat16")
     parser.add_argument("--use_wandb", action="store_true")
     parser.add_argument("--wandb_project", type=str, default="MiniMind-Pretrain")
@@ -136,16 +150,24 @@ if __name__ == "__main__":
     parser.add_argument("--warmup_iters", type=int, default=0)
     parser.add_argument("--log_interval", type=int, default=100)
     parser.add_argument("--save_interval", type=int, default=100)
-    parser.add_argument('--local_rank', type=int, default=-1)
-    parser.add_argument('--hidden_size', default=512, type=int)
-    parser.add_argument('--num_hidden_layers', default=8, type=int)
-    parser.add_argument('--max_seq_len', default=512, type=int)
-    parser.add_argument('--use_moe', default=False, type=bool)
+    parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument("--hidden_size", default=512, type=int)
+    parser.add_argument("--num_hidden_layers", default=8, type=int)
+    parser.add_argument("--max_seq_len", default=512, type=int)
+    parser.add_argument("--use_moe", default=False, type=bool)
     parser.add_argument("--data_path", type=str, default="../dataset/pretrain_hq.jsonl")
-    parser.add_argument("--compile_model", action="store_true", help="Compile the model for optimized execution.")
+    parser.add_argument(
+        "--compile_model",
+        action="store_true",
+        help="Compile the model for optimized execution.",
+    )
     args = parser.parse_args()
 
-    lm_config = MiniMindConfig(hidden_size=args.hidden_size, num_hidden_layers=args.num_hidden_layers, use_moe=args.use_moe)
+    lm_config = MiniMindConfig(
+        hidden_size=args.hidden_size,
+        num_hidden_layers=args.num_hidden_layers,
+        use_moe=args.use_moe,
+    )
     args.save_dir = os.path.join(args.out_dir)
     os.makedirs(args.save_dir, exist_ok=True)
     os.makedirs(args.out_dir, exist_ok=True)
@@ -198,7 +220,7 @@ if __name__ == "__main__":
         drop_last=False,
         shuffle=False,
         num_workers=args.num_workers,
-        sampler=train_sampler
+        sampler=train_sampler,
     )
 
     scaler = torch.amp.GradScaler(
