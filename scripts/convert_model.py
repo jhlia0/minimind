@@ -62,7 +62,7 @@ def convert_transformers2torch(transformers_path, torch_path):
 
 
 if __name__ == '__main__':
-    lm_config = MiniMindConfig(hidden_size=768, num_hidden_layers=16, max_seq_len=8192, use_moe=False)
+    lm_config = MiniMindConfig(hidden_size=512, num_hidden_layers=8, max_seq_len=512, use_moe=False, vocab_size=3200)
 
     torch_path = f"../out/full_sft_{lm_config.hidden_size}{'_moe' if lm_config.use_moe else ''}.pth"
 
