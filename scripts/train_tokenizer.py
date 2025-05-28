@@ -31,7 +31,7 @@ def train_tokenizer():
 
     # 设置训练器并添加特殊token
     trainer = trainers.BpeTrainer(
-        vocab_size=6400,
+        vocab_size=3200,
         special_tokens=special_tokens,  # 确保这三个token被包含
         show_progress=True,
         initial_alphabet=pre_tokenizers.ByteLevel.alphabet()
