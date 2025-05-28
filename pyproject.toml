@@ -18,6 +18,7 @@ dependencies = [
     "nltk==3.8",
     "numpy>=2.0.0",
     "openai==1.59.6",
+    "opencc>=1.1.9",
     "pandas>=2.0.0",
     "peft==0.7.1",
     "psutil==5.9.8",
