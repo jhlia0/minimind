@@ -112,7 +112,7 @@ def init_model(lm_config):
     model.load_state_dict(state_dict, strict=False)
 
     Logger(
-        f"LLM可训练总参数量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百万"
+        f"LLM可訓練總參數量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百萬"
     )
     model = model.to(args.device)
     model.compile()

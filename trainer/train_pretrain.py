@@ -121,7 +121,7 @@ def init_model(lm_config):
     if args.compile_model:
         model.compile(backend="openxla" if args.device == "xla" else "inductor")
     Logger(
-        f"LLM可训练总参数量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百万"
+        f"LLM可訓練總參數量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百萬"
     )
     return model, tokenizer
 
