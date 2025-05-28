@@ -21,9 +21,7 @@ def init_model(args):
             num_hidden_layers=args.num_hidden_layers,
             use_moe=args.use_moe
         ))
-
-        model.load_state_dict(torch.load(ckp, map_location=args.device), strict=True)
-
+        model.load_state_dict(torch.load(ckp, map_location=args.device), strict=False)
         if args.lora_name != 'None':
             apply_lora(model)
             load_lora(model, f'./{args.out_dir}/lora/{args.lora_name}_{args.hidden_size}.pth')
