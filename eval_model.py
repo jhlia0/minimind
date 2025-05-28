@@ -31,7 +31,7 @@ def init_model(args):
         transformers_model_path = './MiniMind2'
         tokenizer = AutoTokenizer.from_pretrained(transformers_model_path)
         model = AutoModelForCausalLM.from_pretrained(transformers_model_path, trust_remote_code=True)
-    print(f'MiniMind模型参数量: {sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.2f}M(illion)')
+    print(f'MiniMind模型參數量: {sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.2f}M(illion)')
     return model.eval().to(args.device), tokenizer
 
 
@@ -39,25 +39,25 @@ def get_prompt_datas(args):
     if args.model_mode == 0:
         # pretrain模型的接龙能力（无法对话）
         prompt_datas = [
-            '马克思主义基本原理',
-            '人类大脑的主要功能',
-            '万有引力原理是',
+            '馬克思主義基本原理',
+            '人類大腦的主要功能',
+            '萬有引力原理是',
             '世界上最高的山峰是',
-            '二氧化碳在空气中',
-            '地球上最大的动物有',
+            '二氧化碳在空氣中',
+            '地球上最大的動物有',
             '杭州市的美食有'
         ]
     else:
         if args.lora_name == 'None':
             # 通用对话问题
             prompt_datas = [
-                '请介绍一下自己。',
-                '你更擅长哪一个学科？',
-                '鲁迅的《狂人日记》是如何批判封建礼教的？',
-                '我咳嗽已经持续了两周，需要去医院检查吗？',
-                '详细的介绍光速的物理概念。',
-                '推荐一些杭州的特色美食吧。',
-                '请为我讲解“大语言模型”这个概念。',
+                '請介紹一下自己。',
+                '你更擅長哪一個學科？',
+                '魯迅的《狂人日記》是如何批判封建禮教的？',
+                '我咳嗽已經持續了兩週，需要去醫院檢查嗎？',
+                '詳細的介紹光速的物理概念。',
+                '推薦一些杭州的特色美食吧。',
+                '請為我講解“大語言模型”這個概念。',
                 '如何理解ChatGPT？',
                 'Introduce the history of the United States, please.'
             ]
@@ -66,18 +66,18 @@ def get_prompt_datas(args):
             lora_prompt_datas = {
                 'lora_identity': [
                     "你是ChatGPT吧。",
-                    "你叫什么名字？",
-                    "你和openai是什么关系？"
+                    "你叫什麼名字？",
+                    "你和openai是什麼關係？"
                 ],
                 'lora_medical': [
-                    '我最近经常感到头晕，可能是什么原因？',
-                    '我咳嗽已经持续了两周，需要去医院检查吗？',
-                    '服用抗生素时需要注意哪些事项？',
-                    '体检报告中显示胆固醇偏高，我该怎么办？',
-                    '孕妇在饮食上需要注意什么？',
-                    '老年人如何预防骨质疏松？',
-                    '我最近总是感到焦虑，应该怎么缓解？',
-                    '如果有人突然晕倒，应该如何急救？'
+                    '我最近經常感到頭暈，可能是什麼原因？',
+                    '我咳嗽已經持續了兩週，需要去醫院檢查嗎？',
+                    '服用抗生素時需要注意哪些事項？',
+                    '體檢報告中顯示膽固醇偏高，我該怎麼辦？',
+                    '孕婦在飲食上需要注意什麼？',
+                    '老年人如何預防骨質疏鬆？',
+                    '我最近總是感到焦慮，應該怎麼緩解？',
+                    '如果有人突然暈倒，應該如何急救？'
                 ],
             }
             prompt_datas = lora_prompt_datas[args.lora_name]
