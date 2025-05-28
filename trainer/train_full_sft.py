@@ -34,6 +34,8 @@ def train_epoch(epoch, wandb):
     loss_fct = nn.CrossEntropyLoss(reduction="none")
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
+        if epoch == start_epoch and step < start_step:
+            continue  # Skip steps already completed
         X = X.to(args.device)
         Y = Y.to(args.device)
         loss_mask = loss_mask.to(args.device)

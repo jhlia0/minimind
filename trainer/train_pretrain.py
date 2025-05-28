@@ -35,6 +35,8 @@ def train_epoch(epoch, wandb):
     loss_fct = LigerCrossEntropyLoss(reduction="none") if lm_config.use_liger_kernel else nn.CrossEntropyLoss(reduction="none")
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
+        if epoch == start_epoch and step < start_step:
+            continue  # Skip steps already completed
         # optimizer.zero_grad(set_to_none=True)
         X = X.to(args.device)
         Y = Y.to(args.device)
