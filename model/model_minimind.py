@@ -3,7 +3,7 @@
 # 📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘
 
 from transformers import PretrainedConfig
-
+from liger_kernel.transformers import LigerRMSNorm 
 
 class MiniMindConfig(PretrainedConfig):
     model_type = "minimind"
@@ -24,6 +24,7 @@ class MiniMindConfig(PretrainedConfig):
             rms_norm_eps: float = 1e-05,
             rope_theta: int = 1000000.0,
             flash_attn: bool = True,
+            use_liger_kernel: bool = True,
             ####################################################
             # Here are the specific configurations of MOE
             # When use_moe is false, the following is invalid
@@ -53,6 +54,7 @@ class MiniMindConfig(PretrainedConfig):
         self.rms_norm_eps = rms_norm_eps
         self.rope_theta = rope_theta
         self.flash_attn = flash_attn
+        self.use_liger_kernel = use_liger_kernel
         ####################################################
         # Here are the specific configurations of MOE
         # When use_moe is false, the following is invalid
@@ -343,8 +345,8 @@ class MiniMindBlock(nn.Module):
         self.self_attn = Attention(config)
 
         self.layer_id = layer_id
-        self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.input_layernorm = LigerRMSNorm(config.hidden_size, eps=config.rms_norm_eps) if config.use_liger_kernel else RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = LigerRMSNorm(config.hidden_size, eps=config.rms_norm_eps) if config.use_liger_kernel else RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.mlp = FeedForward(config) if not config.use_moe else MOEFeedForward(config)
 
     def forward(self, hidden_states, position_embeddings, past_key_value=None, use_cache=False, attention_mask=None):
@@ -366,8 +368,7 @@ class MiniMindModel(nn.Module):
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size)
         self.dropout = nn.Dropout(config.dropout)
         self.layers = nn.ModuleList([MiniMindBlock(l, config) for l in range(self.num_hidden_layers)])
-        self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-
+        self.norm = LigerRMSNorm(config.hidden_size, eps=config.rms_norm_eps) if config.use_liger_kernel else RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         freqs_cos, freqs_sin = precompute_freqs_cis(dim=config.hidden_size // config.num_attention_heads,
                                                     end=config.max_position_embeddings, theta=config.rope_theta)
         self.register_buffer("freqs_cos", freqs_cos, persistent=False)

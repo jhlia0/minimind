@@ -17,6 +17,7 @@ from contextlib import nullcontext
 from transformers import AutoTokenizer
 from model.model_minimind import MiniMindConfig, MiniMindForCausalLM
 from dataset.lm_dataset import PretrainDataset
+from liger_kernel.transformers import LigerCrossEntropyLoss
 
 warnings.filterwarnings("ignore")
 
@@ -31,9 +32,10 @@ def get_lr(current_step, total_steps, lr):
 
 
 def train_epoch(epoch, wandb):
-    loss_fct = nn.CrossEntropyLoss(reduction="none")
+    loss_fct = LigerCrossEntropyLoss(reduction="none") if lm_config.use_liger_kernel else nn.CrossEntropyLoss(reduction="none")
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
+        # optimizer.zero_grad(set_to_none=True)
         X = X.to(args.device)
         Y = Y.to(args.device)
         loss_mask = loss_mask.to(args.device)
@@ -56,6 +58,8 @@ def train_epoch(epoch, wandb):
             loss = loss / args.accumulation_steps
 
         scaler.scale(loss).backward()
+        # scaler.step(optimizer)
+        # scaler.update()
 
         if (step + 1) % args.accumulation_steps == 0:
             scaler.unscale_(optimizer)
@@ -67,6 +71,7 @@ def train_epoch(epoch, wandb):
             optimizer.zero_grad(set_to_none=True)  # 梯度清 0
             if args.device == "xla":
                 import torch_xla.core.xla_model as xm
+
                 xm.mark_step()
 
         if step % args.log_interval == 0:
@@ -107,6 +112,9 @@ def train_epoch(epoch, wandb):
             torch.save(state_dict, ckp)
             model.train()
 
+            # Save checkpoint at each step
+            save_checkpoint(epoch, step + 1, model, optimizer, scaler, checkpoint_path)
+
 
 def init_model(lm_config):
     tokenizer = AutoTokenizer.from_pretrained("../model/")
@@ -115,8 +123,9 @@ def init_model(lm_config):
     ## TPU support
     if args.device == "xla":
         import torch_xla
+
         device = torch_xla.device()
-    
+
     model = MiniMindForCausalLM(lm_config).to(device)
     if args.compile_model:
         model.compile(backend="openxla" if args.device == "xla" else "inductor")
@@ -137,6 +146,28 @@ def init_distributed_mode():
     ddp_world_size = int(os.environ["WORLD_SIZE"])
     DEVICE = f"cuda:{ddp_local_rank}"
     torch.cuda.set_device(DEVICE)
+
+
+def save_checkpoint(epoch, step, model, optimizer, scaler, save_path):
+    checkpoint = {
+        "epoch": epoch,
+        "step": step,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "scaler_state_dict": scaler.state_dict() if scaler else None,
+    }
+    torch.save(checkpoint, save_path)
+
+
+def load_checkpoint(model, optimizer, scaler, load_path):
+    if os.path.exists(load_path):
+        checkpoint = torch.load(load_path)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if scaler and "scaler_state_dict" in checkpoint:
+            scaler.load_state_dict(checkpoint["scaler_state_dict"])
+        return checkpoint["epoch"], checkpoint.get("step", 0)
+    return 0, 0
 
 
 # torchrun --nproc_per_node 2 1-pretrain.py
@@ -234,7 +265,7 @@ if __name__ == "__main__":
     )
 
     scaler = torch.amp.GradScaler(
-        "cuda", enabled=(args.dtype in ["float16", "bfloat16"])
+        device=device_type, enabled=(args.dtype in ["float16", "bfloat16"])
     )
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
@@ -242,6 +273,35 @@ if __name__ == "__main__":
         model._ddp_params_and_buffers_to_ignore = {"pos_cis"}
         model = DistributedDataParallel(model, device_ids=[ddp_local_rank])
 
+    # Define checkpoint path
+    checkpoint_path = os.path.join(
+        args.save_dir, "pretrain_{}_checkpoint.pth".format(args.max_seq_len)
+    )
+
+    # Load checkpoint if exists
+    start_epoch, start_step = load_checkpoint(model, optimizer, scaler, checkpoint_path)
+    if start_epoch == 0 and start_step == 0:
+        print("Starting a new training session.")
+    else:
+        print(f"Resuming training from epoch {start_epoch}, step {start_step}.")
+
     iter_per_epoch = len(train_loader)
     for epoch in range(args.epochs):
         train_epoch(epoch, wandb)
+
+        # Save checkpoint at the end of each epoch
+        if not ddp or dist.get_rank() == 0:
+            save_checkpoint(
+                epoch + 1,
+                0,
+                model,
+                optimizer,
+                scaler,
+                os.path.join(
+                    args.save_dir,
+                    "pretrain_{}_checkpoint_epoch_{}.pth".format(
+                        args.max_seq_len, epoch + 1
+                    ),
+                ),
+            )
+            save_checkpoint(epoch + 1, 0, model, optimizer, scaler, checkpoint_path)

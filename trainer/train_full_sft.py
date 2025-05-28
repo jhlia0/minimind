@@ -102,6 +102,9 @@ def train_epoch(epoch, wandb):
             torch.save(state_dict, ckp)
             model.train()
 
+            # Save checkpoint at each step
+            save_checkpoint(epoch, step + 1, model, optimizer, scaler, checkpoint_path)
+
 
 def init_model(lm_config):
     tokenizer = AutoTokenizer.from_pretrained("../model")
@@ -130,6 +133,27 @@ def init_distributed_mode():
     ddp_world_size = int(os.environ["WORLD_SIZE"])
     DEVICE = f"cuda:{ddp_local_rank}"
     torch.cuda.set_device(DEVICE)
+
+def save_checkpoint(epoch, step, model, optimizer, scaler, save_path):
+    checkpoint = {
+        "epoch": epoch,
+        "step": step,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "scaler_state_dict": scaler.state_dict() if scaler else None,
+    }
+    torch.save(checkpoint, save_path)
+
+
+def load_checkpoint(model, optimizer, scaler, load_path):
+    if os.path.exists(load_path):
+        checkpoint = torch.load(load_path)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if scaler and "scaler_state_dict" in checkpoint:
+            scaler.load_state_dict(checkpoint["scaler_state_dict"])
+        return checkpoint["epoch"], checkpoint.get("step", 0)
+    return 0, 0
 
 
 if __name__ == "__main__":
@@ -232,6 +256,21 @@ if __name__ == "__main__":
         model._ddp_params_and_buffers_to_ignore = {"pos_cis"}
         model = DistributedDataParallel(model, device_ids=[ddp_local_rank])
 
+    # Define checkpoint path
+    checkpoint_path = os.path.join(args.save_dir, 'full_sft_{}_checkpoint.pth'.format(args.hidden_size))
+
+    # Load checkpoint if exists
+    start_epoch, start_step = load_checkpoint(model, optimizer, scaler, checkpoint_path)
+    if start_epoch == 0 and start_step == 0:
+        print("Starting a new training session.")
+    else:
+        print(f"Resuming training from epoch {start_epoch}, step {start_step}.")
+
     iter_per_epoch = len(train_loader)
     for epoch in range(args.epochs):
         train_epoch(epoch, wandb)
+
+        # Save checkpoint at the end of each epoch
+        if not ddp or dist.get_rank() == 0:
+            save_checkpoint(epoch + 1, 0, model, optimizer, scaler, os.path.join(args.save_dir, 'full_sft_{}_checkpoint_epoch_{}.pth'.format(args.hidden_size, epoch + 1)))
+            save_checkpoint(epoch + 1, 0, model, optimizer, scaler, checkpoint_path)
