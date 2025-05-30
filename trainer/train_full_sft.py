@@ -31,7 +31,9 @@ def get_lr(current_step, total_steps, lr):
 
 
 def train_epoch(epoch, wandb):
-    loss_fct = nn.CrossEntropyLoss(reduction="none")
+    if lm_config.use_liger_kernel:
+        from liger_kernel.transformers import LigerCrossEntropyLoss
+    loss_fct = LigerCrossEntropyLoss(reduction="none") if lm_config.use_liger_kernel else nn.CrossEntropyLoss(reduction="none")
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
         if epoch == start_epoch and step < start_step:
@@ -192,6 +194,7 @@ if __name__ == "__main__":
         hidden_size=args.hidden_size,
         num_hidden_layers=args.num_hidden_layers,
         use_moe=args.use_moe,
+        use_liger_kernel= True if torch.cuda.is_available() else False,
     )
     args.save_dir = os.path.join(args.out_dir)
     os.makedirs(args.save_dir, exist_ok=True)

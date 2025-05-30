@@ -3,7 +3,6 @@
 # 📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘📘
 
 from transformers import PretrainedConfig
-from liger_kernel.transformers import LigerRMSNorm 
 
 class MiniMindConfig(PretrainedConfig):
     model_type = "minimind"
@@ -24,7 +23,7 @@ class MiniMindConfig(PretrainedConfig):
             rms_norm_eps: float = 1e-05,
             rope_theta: int = 1000000.0,
             flash_attn: bool = True,
-            use_liger_kernel: bool = True,
+            use_liger_kernel: bool = False,
             ####################################################
             # Here are the specific configurations of MOE
             # When use_moe is false, the following is invalid
@@ -339,6 +338,8 @@ class MOEFeedForward(nn.Module):
 class MiniMindBlock(nn.Module):
     def __init__(self, layer_id: int, config: MiniMindConfig):
         super().__init__()
+        if config.use_liger_kernel:
+            from liger_kernel.transformers import LigerRMSNorm 
         self.num_attention_heads = config.num_attention_heads
         self.hidden_size = config.hidden_size
         self.head_dim = config.hidden_size // config.num_attention_heads
@@ -364,6 +365,8 @@ class MiniMindModel(nn.Module):
     def __init__(self, config: MiniMindConfig):
         super().__init__()
         self.config = config
+        if self.config.use_liger_kernel:
+            from liger_kernel.transformers import LigerRMSNorm 
         self.vocab_size, self.num_hidden_layers = config.vocab_size, config.num_hidden_layers
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size)
         self.dropout = nn.Dropout(config.dropout)

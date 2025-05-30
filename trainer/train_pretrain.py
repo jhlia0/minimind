@@ -17,7 +17,6 @@ from contextlib import nullcontext
 from transformers import AutoTokenizer
 from model.model_minimind import MiniMindConfig, MiniMindForCausalLM
 from dataset.lm_dataset import PretrainDataset
-from liger_kernel.transformers import LigerCrossEntropyLoss
 
 warnings.filterwarnings("ignore")
 
@@ -32,6 +31,8 @@ def get_lr(current_step, total_steps, lr):
 
 
 def train_epoch(epoch, wandb):
+    if lm_config.use_liger_kernel:
+        from liger_kernel.transformers import LigerCrossEntropyLoss
     loss_fct = LigerCrossEntropyLoss(reduction="none") if lm_config.use_liger_kernel else nn.CrossEntropyLoss(reduction="none")
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
@@ -210,12 +211,13 @@ if __name__ == "__main__":
         hidden_size=args.hidden_size,
         num_hidden_layers=args.num_hidden_layers,
         use_moe=args.use_moe,
+        use_liger_kernel= True if torch.cuda.is_available() else False,
     )
     args.save_dir = os.path.join(args.out_dir)
     os.makedirs(args.save_dir, exist_ok=True)
     os.makedirs(args.out_dir, exist_ok=True)
     tokens_per_iter = args.batch_size * args.max_seq_len
-    device_type = "cuda" if "cuda" in args.device else "cpu"
+    device_type = args.device.split(":")[0]
 
     args.wandb_run_name = f"MiniMind-Pretrain-Epoch-{args.epochs}-BatchSize-{args.batch_size}-LearningRate-{args.learning_rate}"
 
@@ -266,9 +268,7 @@ if __name__ == "__main__":
         sampler=train_sampler,
     )
 
-    scaler = torch.amp.GradScaler(
-        device=device_type, enabled=(args.dtype in ["float16", "bfloat16"])
-    )
+    scaler = torch.amp.GradScaler(device_type, enabled=(args.dtype in ['float16', 'bfloat16']))
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     if ddp:
