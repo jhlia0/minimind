@@ -122,7 +122,8 @@ def init_model(lm_config):
         f"LLM可訓練總參數量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百萬"
     )
     model = model.to(args.device)
-    model.compile()
+    if args.compile_model:
+        model.compile(backend="openxla" if args.device == "xla" else "inductor")
     return model, tokenizer
 
 
@@ -186,6 +187,11 @@ if __name__ == "__main__":
     parser.add_argument("--use_moe", default=False, type=bool)
     parser.add_argument(
         "--data_path", type=str, default="../dataset/sft_mini_512.jsonl"
+    )
+    parser.add_argument(
+        "--compile_model",
+        action="store_true",
+        help="Compile the model for optimized execution.",
     )
 
     args = parser.parse_args()
