@@ -3,9 +3,9 @@ name = "minimind"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11, <3.13"
 dependencies = [
-    "datasets==2.21.0",
+    "datasets>=2.21.0",
     "datasketch==1.6.4",
     "flask==3.0.3",
     "flask-cors==4.0.0",
@@ -14,14 +14,14 @@ dependencies = [
     "jsonlines==4.0.0",
     "liger-kernel>=0.5.10; sys_platform != 'darwin'",
     "marshmallow==3.22.0",
-    "matplotlib==3.10.0",
+    "matplotlib>=3.10.0",
     "nltk==3.8",
     "numpy>=2.0.0",
     "openai==1.59.6",
     "opencc>=1.1.9",
     "pandas>=2.0.0",
     "peft==0.7.1",
-    "psutil==5.9.8",
+    "psutil>=5.9.8",
     "pydantic==2.8.2",
     "rich==13.7.1",
     "scikit-learn==1.5.1",
@@ -29,10 +29,42 @@ dependencies = [
     "simhash==2.1.2",
     "streamlit~=1.45.0",
     "tiktoken>=0.9.0",
-    "torch~=2.7.0",
-    "torchvision~=0.22.0",
+    "torch~=2.7.0; sys_platform != 'darwin'",
+    "torch; sys_platform == 'darwin'",
+    "torchvision~=0.22.0; sys_platform != 'darwin'",
+    "torchvision; sys_platform == 'darwin'",
     "transformers==4.48.0",
     "trl==0.13.0",
     "ujson>=5.10.0",
     "wandb~=0.19.11",
 ]
+
+[tool.uv]
+prerelease = "if-necessary-or-explicit"
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu-mac", marker = "sys_platform == 'darwin' and sys_platform != 'linux'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' and sys_platform != 'darwin'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+]
+torchvision = [
+    { index = "pytorch-cpu-mac", marker = "sys_platform == 'darwin' and sys_platform != 'linux'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' and sys_platform != 'darwin'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu-mac"
+url = "https://download.pytorch.org/whl/nightly/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
